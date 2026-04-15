@@ -38,14 +38,10 @@ func (r *Runner) Run(statePath string) error {
 	}
 
 	// 2. Build provider registry with caching.
-	reg := provider.NewRegistry()
-	awsProv, err := provider.NewAWSProvider(r.cfg)
+	reg, err := r.buildRegistry()
 	if err != nil {
-		return fmt.Errorf("initialising AWS provider: %w", err)
+		return err
 	}
-	c := cache.New()
-	cached := cache.NewCachedProvider(awsProv, c)
-	reg.Register("aws", cached)
 
 	// 3. Apply resource filter.
 	f := filter.New(r.cfg.Filters)
@@ -78,4 +74,18 @@ func (r *Runner) Run(statePath string) error {
 	printer.Print(sum)
 
 	return nil
+}
+
+// buildRegistry constructs the provider registry, wrapping each provider with
+// a shared in-memory cache to avoid redundant API calls during a single run.
+func (r *Runner) buildRegistry() (*provider.Registry, error) {
+	reg := provider.NewRegistry()
+	awsProv, err := provider.NewAWSProvider(r.cfg)
+	if err != nil {
+		return nil, fmt.Errorf("initialising AWS provider: %w", err)
+	}
+	c := cache.New()
+	cached := cache.NewCachedProvider(awsProv, c)
+	reg.Register("aws", cached)
+	return reg, nil
 }
