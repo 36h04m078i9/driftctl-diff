@@ -1,52 +1,53 @@
-// Package summary provides aggregation and reporting of drift detection results.
+// Package summary computes and prints high-level drift statistics.
 package summary
 
 import (
 	"fmt"
 	"io"
+	"os"
 
 	"github.com/acme/driftctl-diff/internal/drift"
 )
 
-// Stats holds aggregated counts from a drift detection run.
-type Stats struct {
-	TotalResources int
-	DriftedResources int
-	CleanResources   int
-	TotalChanges     int
+// Result holds aggregate counts for a drift detection run.
+type Result struct {
+	Total   int `json:"total"`
+	Drifted int `json:"drifted"`
+	Clean   int `json:"clean"`
 }
 
-// Compute derives Stats from a slice of drift.Change slices keyed by resource.
-func Compute(results []drift.ResourceDiff) Stats {
-	s := Stats{
-		TotalResources: len(results),
-	}
-	for _, rd := range results {
-		if len(rd.Changes) > 0 {
-			s.DriftedResources++
-			s.TotalChanges += len(rd.Changes)
+// Compute derives a Result from a slice of DriftResults.
+func Compute(results []drift.DriftResult) Result {
+	r := Result{Total: len(results)}
+	for _, res := range results {
+		if len(res.Changes) > 0 {
+			r.Drifted++
 		} else {
-			s.CleanResources++
+			r.Clean++
 		}
 	}
-	return s
+	return r
 }
 
-// Printer writes a human-readable summary to an io.Writer.
+// Printer writes a human-readable summary line.
 type Printer struct {
-	w io.Writer
+	dest io.Writer
 }
 
-// NewPrinter creates a Printer that writes to w.
-func NewPrinter(w io.Writer) *Printer {
-	return &Printer{w: w}
+// NewPrinter creates a Printer writing to dest (defaults to os.Stdout).
+func NewPrinter(dest io.Writer) *Printer {
+	if dest == nil {
+		dest = os.Stdout
+	}
+	return &Printer{dest: dest}
 }
 
-// Print writes the summary stats to the underlying writer.
-func (p *Printer) Print(s Stats) {
-	fmt.Fprintf(p.w, "\nSummary:\n")
-	fmt.Fprintf(p.w, "  Resources scanned : %d\n", s.TotalResources)
-	fmt.Fprintf(p.w, "  Drifted           : %d\n", s.DriftedResources)
-	fmt.Fprintf(p.w, "  In sync           : %d\n", s.CleanResources)
-	fmt.Fprintf(p.w, "  Total changes     : %d\n", s.TotalChanges)
+// Print writes a one-line summary of the result.
+func (p *Printer) Print(r Result) {
+	status := "✔  No drift detected"
+	if r.Drifted > 0 {
+		status = fmt.Sprintf("✘  Drift detected in %d resource(s)", r.Drifted)
+	}
+	fmt.Fprintf(p.dest, "%s  (total: %d, clean: %d, drifted: %d)\n",
+		status, r.Total, r.Clean, r.Drifted)
 }
