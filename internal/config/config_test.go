@@ -48,6 +48,9 @@ func TestLoad_ValidFile(t *testing.T) {
 	if cfg.Provider != "gcp" {
 		t.Errorf("expected gcp, got %q", cfg.Provider)
 	}
+	if cfg.Region != "eu-west-1" {
+		t.Errorf("expected region eu-west-1, got %q", cfg.Region)
+	}
 	if cfg.Color {
 		t.Error("expected color disabled")
 	}
@@ -68,5 +71,21 @@ func TestLoad_InvalidYAML(t *testing.T) {
 	_, err := config.Load(tmp)
 	if err == nil {
 		t.Fatal("expected error for invalid YAML, got nil")
+	}
+}
+
+// TestLoad_EmptyFile verifies that loading an empty config file returns
+// defaults rather than an error.
+func TestLoad_EmptyFile(t *testing.T) {
+	tmp := filepath.Join(t.TempDir(), "empty.yaml")
+	if err := os.WriteFile(tmp, []byte{}, 0o600); err != nil {
+		t.Fatalf("write temp file: %v", err)
+	}
+	cfg, err := config.Load(tmp)
+	if err != nil {
+		t.Fatalf("unexpected error for empty file: %v", err)
+	}
+	if cfg == nil {
+		t.Fatal("expected non-nil config for empty file")
 	}
 }
