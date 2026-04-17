@@ -51,7 +51,7 @@ func TestCSVFormatter_WithChanges_ContainsValues(t *testing.T) {
 	}
 	row := records[1]
 	if row[0] != "aws_s3_bucket" {
-		t.Errorf("expected aws_s3 row[0])
+		t.Errorf("expected aws_s3_bucket, got %s", row[0])
 	}
 	if row[1] != "my-bucket" {
 		t.Errorf("expected my-bucket, got %s", row[1])
