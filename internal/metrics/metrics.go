@@ -63,3 +63,13 @@ func (c *Collector) Snapshot() Counters {
 	copy := c.counters
 	return copy
 }
+
+// DriftRatio returns the fraction of resources that drifted (0 if none scanned).
+// It takes a snapshot first to ensure Duration is up to date.
+func (c *Collector) DriftRatio() float64 {
+	snap := c.Snapshot()
+	if snap.ResourcesTotal == 0 {
+		return 0
+	}
+	return float64(snap.ResourcesDrifted) / float64(snap.ResourcesTotal)
+}
