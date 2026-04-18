@@ -1,15 +1,14 @@
-// Package diff provides pagination utilities for drift results.
+// Package diff provides utilities for working with drift results, including
+// pagination, searching, sorting, highlighting, and grouping.
 //
-// Use NewPager to create a pager with a fixed page size, then call
-// Paginate to split a []drift.ResourceDiff slice into pages.
-// PrintPage writes a human-readable summary of each page to the
-// configured writer.
+// Grouper partitions []drift.Result by resource type or change kind, making
+// it easy to render grouped output in CLI formatters or reports.
 //
-// Example:
+// Example usage:
 //
-//	p := diff.NewPager(20, os.Stdout)
-//	pages := p.Paginate(results)
-//	for _, pg := range pages {
-//		p.PrintPage(pg)
+//	g := diff.NewGrouper()
+//	groups := g.GroupByType(results)
+//	for _, grp := range groups {
+//		fmt.Println(grp.ResourceType, len(grp.Results))
 //	}
 package diff
