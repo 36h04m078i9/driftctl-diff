@@ -43,3 +43,8 @@ func (s Stats) DriftPercent() float64 {
 	}
 	return float64(s.DriftedResources) / float64(s.TotalResources) * 100
 }
+
+// TotalChanges returns the total number of attribute changes across all resources.
+func (s Stats) TotalChanges() int {
+	return s.AddedAttributes + s.ChangedAttributes + s.DeletedAttributes
+}
