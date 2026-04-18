@@ -1,9 +1,8 @@
-// Package diff provides utilities for working with drift results, including
-// pagination, searching, sorting, grouping, highlighting, annotation,
-// exporting, filtering, statistics, and comparison between drift snapshots.
+// Package diff provides utilities for working with drift results:
+// searching, sorting, grouping, paginating, highlighting, annotating,
+// comparing, merging, filtering, exporting, and truncating.
 //
-// The Comparator type allows callers to compare two sets of drift results —
-// for example a previously recorded baseline against the current scan — and
-// surface which resources have newly drifted, which have been resolved, and
-// which continue to drift unchanged.
+// Truncator limits the number of resources, changes per resource, and
+// the maximum display length of attribute values so that large drift
+// reports remain readable in terminal output.
 package diff
