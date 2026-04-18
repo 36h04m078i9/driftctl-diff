@@ -21,10 +21,10 @@ func NewScorerPrinter(w io.Writer) *ScorerPrinter {
 }
 
 // Print writes a formatted score table.
-func (p *ScorerPrinter) Print(scores []Score) {
+func (p *ScorerPrinter) Print(scores []Score) error {
 	if len(scores) == 0 {
-		fmt.Fprintln(p.w, "no drift scores to display")
-		return
+		_, err := fmt.Fprintln(p.w, "no drift scores to display")
+		return err
 	}
 	tw := tabwriter.NewWriter(p.w, 0, 0, 2, ' ', 0)
 	fmt.Fprintln(tw, "RESOURCE TYPE\tRESOURCE ID\tSCORE\tCRITICAL\tWARNING\tINFO")
@@ -33,5 +33,5 @@ func (p *ScorerPrinter) Print(scores []Score) {
 		fmt.Fprintf(tw, "%s\t%s\t%d\t%d\t%d\t%d\n",
 			s.ResourceType, s.ResourceID, s.Total, s.Critical, s.Warning, s.Info)
 	}
-	_ = tw.Flush()
+	return tw.Flush()
 }
