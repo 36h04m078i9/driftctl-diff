@@ -1,8 +1,17 @@
-// Package diff provides utilities for working with drift results:
-// searching, sorting, grouping, paginating, highlighting, annotating,
-// comparing, merging, filtering, exporting, and truncating.
+// Package diff provides utilities for processing, rendering, and exporting
+// infrastructure drift results produced by the detector.
 //
-// Truncator limits the number of resources, changes per resource, and
-// the maximum display length of attribute values so that large drift
-// reports remain readable in terminal output.
+// Key components:
+//   - Renderer   – unified-diff-like human-readable output
+//   - Highlighter – colorises individual attribute changes
+//   - Pager       – paginates large result sets
+//   - Searcher    – filters results by type, ID, or kind
+//   - Sorter      – sorts results by various fields
+//   - Grouper     – groups results by resource type or change kind
+//   - Annotator   – attaches explanatory notes to changes
+//   - Comparator  – compares two snapshots of drift results over time
+//   - Merger      – deduplicates and merges overlapping result sets
+//   - Truncator   – limits output size for large environments
+//   - Exporter    – serialises results to text or JSON
+//   - Stats       – computes aggregate statistics over a result set
 package diff
