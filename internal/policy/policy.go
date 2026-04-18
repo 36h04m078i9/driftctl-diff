@@ -72,6 +72,17 @@ func MaxSeverity(violations []Violation) Severity {
 	return result
 }
 
+// FilterBySeverity returns only the violations that match the given severity.
+func FilterBySeverity(violations []Violation, s Severity) []Violation {
+	var out []Violation
+	for _, v := range violations {
+		if v.Severity == s {
+			out = append(out, v)
+		}
+	}
+	return out
+}
+
 // String formats a Violation for display.
 func (v Violation) String() string {
 	return fmt.Sprintf("[%s] %s.%s attr=%s", v.Severity, v.Change.ResourceType, v.Change.ResourceID, v.Change.Attribute)
