@@ -53,3 +53,14 @@ func (t *Timeline) Latest() (TimelineEntry, bool) {
 func (t *Timeline) Len() int {
 	return len(t.entries)
 }
+
+// Since returns all entries captured at or after the given time.
+func (t *Timeline) Since(since time.Time) []TimelineEntry {
+	var out []TimelineEntry
+	for _, e := range t.entries {
+		if !e.CapturedAt.Before(since) {
+			out = append(out, e)
+		}
+	}
+	return out
+}
