@@ -17,6 +17,11 @@ func (s *stubNotifier) Notify(_ notify.Event) error {
 	return s.err
 }
 
+// sampleEvent returns a minimal Event for use in tests.
+func sampleEvent() notify.Event {
+	return notify.Event{}
+}
+
 func TestMultiNotifier_CallsAll(t *testing.T) {
 	a, b := &stubNotifier{}, &stubNotifier{}
 	m := notify.NewMultiNotifier(a, b)
@@ -44,5 +49,12 @@ func TestMultiNotifier_PartialError_StillCallsRest(t *testing.T) {
 	m.Notify(sampleEvent()) //nolint:errcheck
 	if !b.called {
 		t.Error("second notifier should still be called after first fails")
+	}
+}
+
+func TestMultiNotifier_Empty_NoError(t *testing.T) {
+	m := notify.NewMultiNotifier()
+	if err := m.Notify(sampleEvent()); err != nil {
+		t.Fatalf("expected no error from empty notifier, got: %v", err)
 	}
 }
