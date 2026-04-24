@@ -78,3 +78,13 @@ func (a *Aggregator) Print(results []drift.ResourceDiff) {
 		fmt.Fprintf(a.w, "  %-30s %-10s %d change(s)\n", r.ResourceType, r.Kind, r.Count)
 	}
 }
+
+// Summary returns a map of change kind to total count across all resource types.
+// This is useful for producing high-level statistics about a set of drift results.
+func (a *Aggregator) Summary(results []drift.ResourceDiff) map[drift.ChangeKind]int {
+	summary := make(map[drift.ChangeKind]int)
+	for _, r := range a.Aggregate(results) {
+		summary[r.Kind] += r.Count
+	}
+	return summary
+}
