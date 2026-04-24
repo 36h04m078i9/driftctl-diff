@@ -1,6 +1,7 @@
 package diff_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/acme/driftctl-diff/internal/diff"
@@ -99,4 +100,14 @@ func TestLabeler_EmptyInput_ReturnsEmpty(t *testing.T) {
 	if len(labeled) != 0 {
 		t.Errorf("expected empty slice, got %d", len(labeled))
 	}
+}
+
+// findLabel is a helper that returns the value of a label by key, and whether it was found.
+func findLabel(labels []diff.Label, key string) (string, bool) {
+	for _, lbl := range labels {
+		if lbl.Key == key {
+			return lbl.Value, true
+		}
+	}
+	return "", false
 }
