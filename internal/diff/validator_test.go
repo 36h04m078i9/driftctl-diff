@@ -84,3 +84,18 @@ func TestValidator_EmptyResults_Valid(t *testing.T) {
 		t.Error("empty results should be valid")
 	}
 }
+
+func TestValidator_BothFieldsMissing_ReportsTwoErrors(t *testing.T) {
+	v := NewValidator(100)
+	results := []drift.ResourceDiff{{ResourceType: "", ResourceID: ""}}
+	vr, err := v.Validate(results)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if vr.Valid {
+		t.Error("expected invalid result")
+	}
+	if len(vr.Errors) != 2 {
+		t.Errorf("expected 2 errors (missing type and ID), got %d", len(vr.Errors))
+	}
+}
