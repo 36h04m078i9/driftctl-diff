@@ -46,6 +46,8 @@ driftctl-diff --provider aws --region us-east-1
 | `--region` | Target region | `us-east-1` |
 | `--state` | Path to Terraform state file | `terraform.tfstate` |
 | `--output` | Output format (`diff`, `json`, `summary`) | `diff` |
+| `--filter` | Comma-separated list of resource types to include (e.g. `aws_s3_bucket,aws_iam_role`) | *(all)* |
+| `--exit-code` | Exit with code 1 if drift is detected (useful for CI pipelines) | `false` |
 
 ---
 
