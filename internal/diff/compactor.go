@@ -1,124 +1,114 @@
+// Package diff provides utilities for processing and transforming drift results.
 package diff
 
-import (
-	"fmt"
-	"io"
-	"os"
-	"strings"
+import "github.com/acme/driftctl-diff/internal/drift"
 
-	"github.com/owner/driftctl-diff/internal/drift"
-)
-
-// CompactOptions controls how the Compactor condenses drift results.
+// CompactOptions controls the behaviour of the Compactor.
 type CompactOptions struct {
-	// MaxAttributesPerResource limits the number of attribute changes shown per
-	// resource. Remaining changes are summarised as "… N more".
-	MaxAttributesPerResource int
+	// MergeAdjacentResources combines consecutive DriftResult entries that share
+	// the same ResourceID and ResourceType into a single entry.
+	MergeAdjacentResources bool
 
-	// OmitUnchanged drops resources that have zero attribute changes from the
-	// output entirely.
-	OmitUnchanged bool
+	// DeduplicateChanges removes duplicate Change entries within a single result.
+	DeduplicateChanges bool
 
-	// MergeAdjacentValues collapses a → b → c chains into a single a → c entry
-	// when the same attribute appears more than once for a resource.
-	MergeAdjacentValues bool
+	// DropEmptyResults removes results that contain no changes.
+	DropEmptyResults bool
 }
 
-// DefaultCompactOptions returns conservative defaults that keep all data but
-// cap per-resource attribute lines at 10.
+// DefaultCompactOptions returns a CompactOptions with all flags disabled so
+// that the Compactor acts as a pass-through by default.
 func DefaultCompactOptions() CompactOptions {
-	return CompactOptions{
-		MaxAttributesPerResource: 10,
-		OmitUnchanged:            true,
-		MergeAdjacentValues:      false,
-	}
+	return CompactOptions{}
 }
 
-// Compactor condenses a slice of DriftResult values according to CompactOptions,
-// reducing noise in large drift reports.
+// Compactor applies a configurable set of compaction passes to a slice of
+// DriftResult values, reducing noise and merging related entries.
 type Compactor struct {
 	opts CompactOptions
-	w    io.Writer
 }
 
-// NewCompactor creates a Compactor with the supplied options. If w is nil,
-// os.Stdout is used when Print is called.
-func NewCompactor(opts CompactOptions, w io.Writer) *Compactor {
-	if w == nil {
-		w = os.Stdout
-	}
-	return &Compactor{opts: opts, w: w}
+// NewCompactor creates a Compactor with the supplied options.
+func NewCompactor(opts CompactOptions) *Compactor {
+	return &Compactor{opts: opts}
 }
 
-// Compact applies the configured rules to results and returns the condensed
-// slice. The original slice is not modified.
+// Compact runs all enabled compaction passes and returns the resulting slice.
 func (c *Compactor) Compact(results []drift.DriftResult) []drift.DriftResult {
-	out := make([]drift.DriftResult, 0, len(results))
+	if len(results) == 0 {
+		return []drift.DriftResult{}
+	}
 
-	for _, r := range results {
-		changes := r.Changes
+	out := make([]drift.DriftResult, len(results))
+	copy(out, results)
 
-		if c.opts.OmitUnchanged && len(changes) == 0 {
-			continue
-		}
+	if c.opts.DeduplicateChanges {
+		out = deduplicateChangesInResults(out)
+	}
 
-		if c.opts.MergeAdjacentValues {
-			changes = mergeAdjacentChanges(changes)
-		}
+	if c.opts.MergeAdjacentResources {
+		out = mergeAdjacentChanges(out)
+	}
 
-		if c.opts.MaxAttributesPerResource > 0 && len(changes) > c.opts.MaxAttributesPerResource {
-			changes = changes[:c.opts.MaxAttributesPerResource]
-		}
-
-		copy := r
-		copy.Changes = changes
-		out = append(out, copy)
+	if c.opts.DropEmptyResults {
+		out = dropEmpty(out)
 	}
 
 	return out
 }
 
-// Print writes a compact human-readable summary of the results to the writer.
-func (c *Compactor) Print(results []drift.DriftResult) {
-	compacted := c.Compact(results)
-
-	if len(compacted) == 0 {
-		fmt.Fprintln(c.w, "No drift detected.")
-		return
+// mergeAdjacentChanges combines consecutive results that share the same
+// ResourceID and ResourceType.
+func mergeAdjacentChanges(results []drift.DriftResult) []drift.DriftResult {
+	if len(results) == 0 {
+		return results
 	}
 
-	for _, r := range compacted {
-		fmt.Fprintf(c.w, "Resource: %s (%s)  changes: %d\n",
-			r.ResourceID, r.ResourceType, len(r.Changes))
+	merged := []drift.DriftResult{results[0]}
 
-		for _, ch := range r.Changes {
-			fmt.Fprintf(c.w, "  ~ %s: %q → %q\n",
-				ch.Attribute, ch.StateValue, ch.LiveValue)
+	for i := 1; i < len(results); i++ {
+		cur := results[i]
+		last := &merged[len(merged)-1]
+
+		if cur.ResourceID == last.ResourceID && cur.ResourceType == last.ResourceType {
+			last.Changes = append(last.Changes, cur.Changes...)
+		} else {
+			merged = append(merged, cur)
 		}
 	}
+
+	return merged
 }
 
-// mergeAdjacentChanges collapses duplicate attribute entries so that only the
-// first StateValue and last LiveValue are kept.
-func mergeAdjacentChanges(changes []drift.Change) []drift.Change {
-	seen := make(map[string]*drift.Change)
-	order := make([]string, 0, len(changes))
+// deduplicateChangesInResults removes duplicate Change entries within each
+// DriftResult, comparing by Attribute, Got, and Want.
+func deduplicateChangesInResults(results []drift.DriftResult) []drift.DriftResult {
+	for i := range results {
+		seen := make(map[string]struct{})
+		uniq := results[i].Changes[:0]
 
-	for i := range changes {
-		ch := &changes[i]
-		key := strings.ToLower(ch.Attribute)
-		if existing, ok := seen[key]; ok {
-			existing.LiveValue = ch.LiveValue
-		} else {
-			copy := *ch
-			seen[key] = &copy
-			order = append(order, key)
+		for _, ch := range results[i].Changes {
+			key := ch.Attribute + "|" + ch.Got + "|" + ch.Want
+			if _, ok := seen[key]; ok {
+				continue
+			}
+			seen[key] = struct{}{}
+			uniq = append(uniq, ch)
+		}
+
+		results[i].Changes = uniq
+	}
+
+	return results
+}
+
+// dropEmpty filters out results that carry no changes.
+func dropEmpty(results []drift.DriftResult) []drift.DriftResult {
+	out := results[:0]
+	for _, r := range results {
+		if len(r.Changes) > 0 {
+			out = append(out, r)
 		}
 	}
-
-	merged := make([]drift.Change, 0, len(order))
-	for _, k := range order {
-		merged = append(merged, *seen[k])
-	}
-	return merged
+	return out
 }
