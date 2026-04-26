@@ -2,33 +2,34 @@ package diff
 
 import (
 	"bytes"
+	"strings"
 	"testing"
 
-	"github.com/snyk/driftctl-diff/internal/drift"
+	"github.com/acme/driftctl-diff/internal/drift"
 )
 
-func makeScorerResults() []drift.DriftResult {
-	return []drift.DriftResult{
+func makeScorerResults() []drift.Result {
+	return []drift.Result{
 		{
-			ResourceType: "aws_s3_bucket",
-			ResourceID:   "my-bucket",
-			Changes: []drift.AttributeChange{
-				{Attribute: "acl", Kind: drift.KindChanged},
-				{Attribute: "tags", Kind: drift.KindMissing},
+			ResourceType: "aws_instance",
+			ResourceID:   "i-001",
+			Changes: []drift.Change{
+				{Kind: drift.KindChanged, Attribute: "ami"},
+				{Kind: drift.KindMissing, Attribute: "tags"},
 			},
 		},
 		{
-			ResourceType: "aws_iam_role",
-			ResourceID:   "my-role",
-			Changes: []drift.AttributeChange{
-				{Attribute: "assume_role_policy", Kind: drift.KindAdded},
+			ResourceType: "aws_s3_bucket",
+			ResourceID:   "my-bucket",
+			Changes: []drift.Change{
+				{Kind: drift.KindChanged, Attribute: "acl"},
 			},
 		},
 	}
 }
 
 func TestScore_SortedDescending(t *testing.T) {
-	s := NewScorer()
+	s := NewScorer(DefaultScorerOptions())
 	scores := s.Score(makeScorerResults())
 	if len(scores) != 2 {
 		t.Fatalf("expected 2 scores, got %d", len(scores))
@@ -39,19 +40,26 @@ func TestScore_SortedDescending(t *testing.T) {
 }
 
 func TestScore_TotalsAreCorrect(t *testing.T) {
-	s := NewScorer()
+	opts := ScorerOptions{WeightChanged: 1, WeightMissing: 2}
+	s := NewScorer(opts)
 	scores := s.Score(makeScorerResults())
-	// bucket: KindChanged(2) + KindMissing(3) = 5
-	if scores[0].Total != 5 {
-		t.Errorf("expected total 5, got %d", scores[0].Total)
+	// aws_instance: 1 changed + 1 missing = 1*1 + 1*2 = 3
+	var inst Score
+	for _, sc := range scores {
+		if sc.ResourceID == "i-001" {
+			inst = sc
+		}
+	}
+	if inst.Total != 3 {
+		t.Errorf("expected total 3, got %d", inst.Total)
 	}
 }
 
 func TestScore_Empty(t *testing.T) {
-	s := NewScorer()
+	s := NewScorer(DefaultScorerOptions())
 	scores := s.Score(nil)
 	if len(scores) != 0 {
-		t.Errorf("expected empty scores")
+		t.Errorf("expected empty slice")
 	}
 }
 
@@ -59,24 +67,34 @@ func TestScorerPrinter_NoScores(t *testing.T) {
 	var buf bytes.Buffer
 	p := NewScorerPrinter(&buf)
 	p.Print(nil)
-	if !bytes.Contains(buf.Bytes(), []byte("no drift scores")) {
-		t.Errorf("expected no drift message, got: %s", buf.String())
+	if !strings.Contains(buf.String(), "No drift scores") {
+		t.Errorf("expected no-scores message, got: %s", buf.String())
 	}
 }
 
-func TestScorerPrinter_ContainsResourceID(t *testing.T) {
+func TestScorerPrinter_ContainsHeaders(t *testing.T) {
 	var buf bytes.Buffer
 	p := NewScorerPrinter(&buf)
-	s := NewScorer()
+	s := NewScorer(DefaultScorerOptions())
 	p.Print(s.Score(makeScorerResults()))
-	if !bytes.Contains(buf.Bytes(), []byte("my-bucket")) {
-		t.Errorf("expected resource ID in output, got: %s", buf.String())
+	out := buf.String()
+	for _, hdr := range []string{"RESOURCE TYPE", "RESOURCE ID", "SCORE"} {
+		if !strings.Contains(out, hdr) {
+			t.Errorf("missing header %q in output: %s", hdr, out)
+		}
 	}
 }
 
-func TestScorerPrinter_NilWriter_DefaultsToStdout(t *testing.T) {
-	p := NewScorerPrinter(nil)
-	if p.w == nil {
-		t.Error("expected non-nil writer")
+func TestScorerPrinter_ContainsResourceInfo(t *testing.T) {
+	var buf bytes.Buffer
+	p := NewScorerPrinter(&buf)
+	s := NewScorer(DefaultScorerOptions())
+	p.Print(s.Score(makeScorerResults()))
+	out := buf.String()
+	if !strings.Contains(out, "aws_instance") {
+		t.Errorf("expected resource type in output: %s", out)
+	}
+	if !strings.Contains(out, "i-001") {
+		t.Errorf("expected resource ID in output: %s", out)
 	}
 }

@@ -1,16 +1,21 @@
-// Package diff provides utilities for comparing, rendering, and analysing
-// infrastructure drift results.
+// Package diff provides utilities for working with drift results.
 //
-// The Scorer type assigns a weighted numeric score to each drifted resource
-// based on the kinds of attribute changes detected:
+// # Scorer
 //
-//   - KindMissing  → weight 3 (Critical)
-//   - KindChanged  → weight 2 (Warning)
-//   - KindAdded    → weight 1 (Info)
+// The Scorer assigns a numeric weight to each drifted resource based on the
+// number and kind of attribute changes detected.
 //
-// Results are returned sorted in descending order of total score so that the
-// most severely drifted resources appear first.
+// Changed attributes are weighted by ScorerOptions.WeightChanged (default 1).
+// Missing attributes are weighted by ScorerOptions.WeightMissing (default 2)
+// because a missing attribute typically represents a more severe deviation
+// from the desired state.
 //
-// ScorerPrinter renders the scores as a tab-aligned table suitable for
-// terminal output.
+// Results are returned sorted in descending order of total score, making it
+// easy to identify the most severely drifted resources at a glance.
+//
+// Usage:
+//
+//	scorer := diff.NewScorer(diff.DefaultScorerOptions())
+//	scores := scorer.Score(results)
+//	diff.NewScorerPrinter(os.Stdout).Print(scores)
 package diff
